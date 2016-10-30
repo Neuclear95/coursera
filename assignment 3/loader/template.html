@@ -1,0 +1,12 @@
+<div class="loader">
+<ol>
+
+  <li ng-repeat="item in list.items">
+  Name: {{ item.name }} Short name: {{ item.short_name }}
+  Descrition: {{ item.description }}
+  <button type="button" name="button" ng-click="list.onRemove({index: $index})">
+  Don't want this!
+  </button>
+  </li>
+</ol>
+</div>

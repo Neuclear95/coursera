@@ -1,120 +1,71 @@
-(function (){
-'use strict';
-
+(function() {
 angular.module('NarrowItDownApp', [])
 .controller('NarrowItDownController', NarrowItDownController)
 .service('MenuSearchService', MenuSearchService)
-.directive('foundItems', FoundItems);
+.directive('foundItems', FoundItemsDirective)
+.constant('menuPath',
+'https://davids-restaurant.herokuapp.com/menu_items.json');
 
-function FoundItems() {
+function FoundItemsDirective() {
   var ddo = {
+    template: "<div class='loader'><ol>    <li ng-repeat='item in list.items'>    Name: {{ item.name }} Short name: {{ item.short_name }}   Descrition: {{ item.description }}    <button type='button' name='button' ng-click='list.onRemove({index: $index})'>    Don\'t want this!    </button>    </li>    </ol>    </div>",
     scope: {
-      items: "<",
+      items: '<',
       onRemove: '&'
     },
-    templateUrl: 'directives/foundItems.html',
     controller: FoundItemsDirectiveController,
-    controllerAs: 'directiveController',
+    controllerAs: 'list',
     bindToController: true
   };
   return ddo;
-};
+}
 
 function FoundItemsDirectiveController() {
-  var directiveController = this;
+  var list = this;
+}
 
-};
-
-NarrowItDownController.$inject = ['$scope', 'MenuSearchService'];
-function NarrowItDownController($scope, MenuSearchService) {
-  var controller = this;
-  controller.searchTerm = "";
-  controller.found = [];
-  controller.noResult = "";
-
-  $scope.$watch('controller.found', function() {
-      console.log("updates the found list");
-  });
-
-  controller.narrowItDown = function() {
-    if(!controller.searchTerm || controller.searchTerm.length === 0) {
-      console.log("Nothing to search becaus because given searchTerm not filled");
-      controller.noResult = "Nothing found";
-      controller.found = [];
+NarrowItDownController.$inject = ['MenuSearchService'];
+function NarrowItDownController(MenuSearchService) {
+  var list = this;
+  list.found = [];
+  list.empty = false;
+  list.search = function(searchTerm) {
+    if (searchTerm === undefined || searchTerm === '') {
+      list.empty = true;
       return;
     }
-    var promise = MenuSearchService.getMatchedMenuItems(controller.searchTerm);
-    promise.then(function(result) {
-      controller.found = result;
-      controller.noResult = "";
-    })
-    .catch(function(error) {
-      controller.found = [];
-      controller.noResult = error;
-    });
+    var promise = MenuSearchService.getMatchedMenuItems(searchTerm);
+    promise.then(function(data) {
+        list.found = data;
+        list.empty = data.length === 0;
+      });
   };
 
-  controller.checkNothingFound = function () {
-    return controller.noResult.length > 0;
+  list.remove = function(index) {
+    list.found.splice(index, 1);
   };
+}
 
-  controller.removeItem = function(index) {
-    MenuSearchService.removeItem(controller.found, index);
-  };
-};
-
-MenuSearchService.$inject = ['$q', '$http'];
-function MenuSearchService($q, $http) {
+MenuSearchService.$inject = ['$http', 'menuPath'];
+function MenuSearchService($http, menuPath) {
   var service = this;
 
   service.getMatchedMenuItems = function(searchTerm) {
-    var defferer = $q.defer();
-
-    var httpPromise = doHttpRequest();
-    httpPromise.then(function(response) {
-      return filterResults(response.data.menu_items, searchTerm);
-    }).then(function(response) {
-      defferer.resolve(response);
-    }).catch(function(error) {
-      defferer.reject(error);
-    });
-
-    return defferer.promise;
-  };
-
-  service.removeItem = function(foundItems, index) {
-      foundItems.splice(index, 1);
-  };
-
-  function doHttpRequest() {
     return $http({
-      method: "GET",
-      url: ("https://davids-restaurant.herokuapp.com/menu_items.json")
-    });
+        method: 'GET',
+        url: menuPath
+      }).then(function(result) {
+        var foundItems = [];
+        var data = result.data.menu_items;
+        angular.forEach(data, function(element) {
+          var description = element.description;
+          console.log(searchTerm);
+          if (description.indexOf(searchTerm) !== -1) {
+            foundItems.push(element);
+          }
+        });
+        return foundItems;
+      });
   };
-
-  function filterResults(menu_items, searchTerm) {
-    var deffered = $q.defer();
-
-    var found = [];
-    for(var index = 0; index < menu_items.length; index++) {
-      var currentItem = menu_items[index];
-      if(currentItem.description.indexOf(searchTerm) !== -1) {
-        found.push(currentItem);
-      }
-    }
-
-    console.log("The searched term: " + searchTerm + " found in "
-      + found.length + " descriptions");
-
-    if(found.length > 0) {
-      deffered.resolve(found);
-    } else {
-      deffered.reject("Nothing found");
-    }
-    return deffered.promise;
-  };
-
-};
-
+}
 })();
